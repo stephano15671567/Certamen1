@@ -3,65 +3,64 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>  // Para manejar strcmp y strdup
 
-// Definition of the structure for a Case
+// Estructura para un "Case"
 typedef struct
 {
-    int x, y;    // Coordinates of the case
-    char *state; // State of the case (e.g., "susceptible", "infected", "recovered")
+    int x, y;    // Coordenadas
+    char *state; // Estado (p.ej. "susceptible", "infected", etc.)
 } Case;
 
-// Definition of the structure for a Cell, composed of multiple cases
+// Estructura para una "Cell"
 typedef struct
 {
-    char *name;   // Name of the cell
-    Case **cases; // Array of pointers to the cases
-    int height;   // Height of the cell (number of rows)
-    int width;    // Width of the cell (number of columns)
+    char *name;   // Nombre de la celda
+    Case **cases; // Array de casos
+    int height;   // Altura (número de filas)
+    int width;    // Anchura (número de columnas)
 } Cell;
 
-// Definition of the structure for a Connection between two cases from different cells
+// Estructura para una "Connection" entre dos celdas
 typedef struct
 {
-    Cell *cell1; // Pointer to the first cell
-    Case *case1; // Pointer to a case in the first cell
-    Cell *cell2; // Pointer to the second cell
-    Case *case2; // Pointer to a case in the second cell
+    Cell *cell1;  // Primer celda
+    Case *case1;  // Primer caso
+    Cell *cell2;  // Segunda celda
+    Case *case2;  // Segundo caso
 } Connection;
 
-// Global connection table
+// Estructura para un "Automaton"
+typedef struct
+{
+    char *name;   // Nombre del autómata
+    Cell **cells; // Array de celdas
+    int num_cells; // Número de celdas
+} Automaton;
+
+// Tablas globales
 extern Connection **connection_table;
 extern int num_connections;
-
-// Global cell table
 extern Cell **cell_table;
 extern int num_cells;
+extern Automaton **automaton_table;
+extern int num_automata;
 
-// Associated functions
-
-// Function to create a cell with a given dimension (height, width)
+// Funciones declaradas
 Cell *create_cell(char *name, int height, int width, char *initial_state);
-
-// Function to initialize a case with coordinates and a state
 Case *create_case(int x, int y, char *state);
-
-// Function to connect two cases from different cells
 void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2);
-
-// Function to resize the connection table if necessary
-void resize_connection_table(int new_size);
-
-// Function to add a cell to the global cell list
+void connect_cells_ac(char *automaton1_name, char *cell1_name, int x1, int y1,
+                      char *automaton2_name, char *cell2_name, int x2, int y2);
 void add_cell(Cell *new_cell);
-
-// Function to print all cells and their cases
+void add_cell_to_automaton(Automaton *automaton, Cell *new_cell);
+Automaton *create_automaton(char *name);
+void add_automaton(Automaton *new_automaton);
 void print_cells();
-
-// Function to print all connections between cases
 void print_connections();
-
 Cell *find_cell(char *name);
-
+Automaton *find_automaton(char *name);
+Cell *find_cell_in_automaton(Automaton *automaton, char *cell_name);
 void initialize_connection_table();
 
 #endif // CELL_H

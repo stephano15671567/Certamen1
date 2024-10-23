@@ -1,39 +1,39 @@
 #include "cell.h"
-#include <string.h> // For strcmp
-#include <stdlib.h> // For malloc and realloc
+#include <string.h> 
+#include <stdlib.h> 
 
 #define INITIAL_CONNECTION_SIZE 10
 
-// Global connection table
+// Tablas globales
 Connection **connection_table = NULL;
 int num_connections = 0;
-
-// Global cell table
 Cell **cell_table = NULL;
 int num_cells = 0;
+Automaton **automaton_table = NULL;
+int num_automata = 0;
 
-// Function to create a case with coordinates and a state (string)
+// Crear un caso con coordenadas y estado
 Case *create_case(int x, int y, char *state)
 {
     Case *new_case = (Case *)malloc(sizeof(Case));
     new_case->x = x;
     new_case->y = y;
-    new_case->state = state; // Store the string representing the state
+    new_case->state = strdup(state); // Duplicar el string del estado
     return new_case;
 }
 
-// Function to create a cell with a given height, width, and initial state for all cases
+// Crear una celda con dimensiones y estado inicial para todos los casos
 Cell *create_cell(char *name, int height, int width, char *initial_state)
 {
     Cell *new_cell = (Cell *)malloc(sizeof(Cell));
-    new_cell->name = name;
+    new_cell->name = strdup(name);  
     new_cell->height = height;
     new_cell->width = width;
 
-    // Allocate memory for the cases
+    // Asignar memoria para los casos
     new_cell->cases = (Case **)malloc(height * width * sizeof(Case *));
 
-    // Initialize each case with the coordinates and the given initial state
+    // Inicializar cada caso con las coordenadas y el estado inicial
     for (int i = 0; i < height; i++)
     {
         for (int j = 0; j < width; j++)
@@ -42,13 +42,13 @@ Cell *create_cell(char *name, int height, int width, char *initial_state)
         }
     }
 
-    // Add the cell to the global list of cells
+    // Agregar la celda a la tabla global de celdas
     add_cell(new_cell);
 
     return new_cell;
 }
 
-// Function to add a cell to the global cell list
+// Agregar una celda a la tabla global
 void add_cell(Cell *new_cell)
 {
     num_cells++;
@@ -56,74 +56,100 @@ void add_cell(Cell *new_cell)
     cell_table[num_cells - 1] = new_cell;
 }
 
-// Function to initialize the connection table
+// Crear un autómata
+Automaton *create_automaton(char *name)
+{
+    Automaton *new_automaton = (Automaton *)malloc(sizeof(Automaton));
+    new_automaton->name = strdup(name);  
+    new_automaton->cells = NULL;
+    new_automaton->num_cells = 0;
+
+    // Agregar el autómata a la tabla global
+    add_automaton(new_automaton);
+
+    return new_automaton;
+}
+
+// Agregar una celda a un autómata
+void add_cell_to_automaton(Automaton *automaton, Cell *new_cell)
+{
+    automaton->num_cells++;
+    automaton->cells = (Cell **)realloc(automaton->cells, automaton->num_cells * sizeof(Cell *));
+    automaton->cells[automaton->num_cells - 1] = new_cell;
+}
+
+// Agregar un autómata a la tabla global
+void add_automaton(Automaton *new_automaton)
+{
+    num_automata++;
+    automaton_table = (Automaton **)realloc(automaton_table, num_automata * sizeof(Automaton *));
+    automaton_table[num_automata - 1] = new_automaton;
+}
+
+// Inicializar la tabla de conexiones
 void initialize_connection_table()
 {
     if (connection_table == NULL)
     {
         connection_table = (Connection **)malloc(INITIAL_CONNECTION_SIZE * sizeof(Connection *));
-        if (connection_table == NULL)
-        {
-            printf("Error: Memory allocation failed for connection_table.\n");
-            exit(1); // Exit if memory allocation fails
-        }
         num_connections = 0;
     }
 }
 
-void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2)
+// Conectar celdas entre autómatas
+void connect_cells_ac(char *automaton1_name, char *cell1_name, int x1, int y1,
+                      char *automaton2_name, char *cell2_name, int x2, int y2)
 {
-    // Ensure the connection table is initialized
-    initialize_connection_table();
+    Automaton *automaton1 = find_automaton(automaton1_name);
+    Automaton *automaton2 = find_automaton(automaton2_name);
 
-    // Find the cells by their name
-    Cell *cell1 = find_cell(cell1_name);
-    Cell *cell2 = find_cell(cell2_name);
+    if (automaton1 == NULL || automaton2 == NULL)
+    {
+        printf("Error: One or both automata not found.\n");
+        return;
+    }
 
-    // Check that both cells were found
+    Cell *cell1 = find_cell_in_automaton(automaton1, cell1_name);
+    Cell *cell2 = find_cell_in_automaton(automaton2, cell2_name);
+
     if (cell1 == NULL || cell2 == NULL)
     {
         printf("Error: One or both cells not found.\n");
         return;
     }
 
-    // Check that the coordinates are within bounds for both cells
-    if (x1 < 0 || x1 >= cell1->height || y1 < 0 || y1 >= cell1->width)
+    connect_cells(cell1->name, x1, y1, cell2->name, x2, y2);
+}
+
+// Conectar dos celdas
+void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2)
+{
+    initialize_connection_table();
+
+    Cell *cell1 = find_cell(cell1_name);
+    Cell *cell2 = find_cell(cell2_name);
+
+    if (cell1 == NULL || cell2 == NULL)
     {
-        printf("Error: Coordinates (%d, %d) are out of bounds for cell %s.\n", x1, y1, cell1->name);
-        return;
-    }
-    if (x2 < 0 || x2 >= cell2->height || y2 < 0 || y2 >= cell2->width)
-    {
-        printf("Error: Coordinates (%d, %d) are out of bounds for cell %s.\n", x2, y2, cell2->name);
+        printf("Error: One or both cells not found.\n");
         return;
     }
 
-    // Find the corresponding cases in each cell
     Case *case1 = cell1->cases[x1 * cell1->width + y1];
     Case *case2 = cell2->cases[x2 * cell2->width + y2];
 
-    // Check that the cases exist
     if (case1 == NULL || case2 == NULL)
     {
         printf("Error: One or both cases could not be found.\n");
         return;
     }
 
-    // Create the new connection
     Connection *new_connection = (Connection *)malloc(sizeof(Connection));
-    if (new_connection == NULL)
-    {
-        printf("Error: Memory allocation failed.\n");
-        return;
-    }
-
     new_connection->cell1 = cell1;
     new_connection->case1 = case1;
     new_connection->cell2 = cell2;
     new_connection->case2 = case2;
 
-    // Add the new connection to the connection table
     connection_table[num_connections] = new_connection;
     num_connections++;
 
@@ -131,6 +157,7 @@ void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, i
            x1, y1, cell1->name, x2, y2, cell2->name);
 }
 
+// Encontrar una celda por nombre
 Cell *find_cell(char *name)
 {
     for (int i = 0; i < num_cells; i++)
@@ -140,10 +167,36 @@ Cell *find_cell(char *name)
             return cell_table[i];
         }
     }
-    return NULL; // Return NULL if the cell is not found
+    return NULL; 
 }
 
-// Function to print all cells and their cases
+// Encontrar un autómata por nombre
+Automaton *find_automaton(char *name)
+{
+    for (int i = 0; i < num_automata; i++)
+    {
+        if (strcmp(automaton_table[i]->name, name) == 0)
+        {
+            return automaton_table[i];
+        }
+    }
+    return NULL;
+}
+
+// Encontrar una celda dentro de un autómata
+Cell *find_cell_in_automaton(Automaton *automaton, char *cell_name)
+{
+    for (int i = 0; i < automaton->num_cells; i++)
+    {
+        if (strcmp(automaton->cells[i]->name, cell_name) == 0)
+        {
+            return automaton->cells[i];
+        }
+    }
+    return NULL; 
+}
+
+// Imprimir todas las celdas y sus casos
 void print_cells()
 {
     printf("List of cells:\n");
@@ -160,7 +213,7 @@ void print_cells()
     }
 }
 
-// Function to print all connections between cases
+// Imprimir todas las conexiones
 void print_connections()
 {
     printf("List of connections:\n");
