@@ -48,9 +48,6 @@ Case *create_case(int x, int y, char *state);
 // Function to connect two cases from different cells
 void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2);
 
-// Function to initialize the connection table with a given size
-void initialize_connection_table(int initial_size);
-
 // Function to resize the connection table if necessary
 void resize_connection_table(int new_size);
 
@@ -64,5 +61,7 @@ void print_cells();
 void print_connections();
 
 Cell *find_cell(char *name);
+
+void initialize_connection_table();
 
 #endif // CELL_H

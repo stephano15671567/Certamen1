@@ -1,5 +1,8 @@
 #include "cell.h"
 #include <string.h> // For strcmp
+#include <stdlib.h> // For malloc and realloc
+
+#define INITIAL_CONNECTION_SIZE 10
 
 // Global connection table
 Connection **connection_table = NULL;
@@ -54,31 +57,37 @@ void add_cell(Cell *new_cell)
 }
 
 // Function to initialize the connection table
-void initialize_connection_table(int initial_size)
+void initialize_connection_table()
 {
-    connection_table = (Connection **)malloc(initial_size * sizeof(Connection *));
-}
-
-// Function to resize the connection table if necessary
-void resize_connection_table(int new_size)
-{
-    connection_table = (Connection **)realloc(connection_table, new_size * sizeof(Connection *));
+    if (connection_table == NULL)
+    {
+        connection_table = (Connection **)malloc(INITIAL_CONNECTION_SIZE * sizeof(Connection *));
+        if (connection_table == NULL)
+        {
+            printf("Error: Memory allocation failed for connection_table.\n");
+            exit(1); // Exit if memory allocation fails
+        }
+        num_connections = 0;
+    }
 }
 
 void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2)
 {
-    // Trouve les cellules par leur nom
+    // Ensure the connection table is initialized
+    initialize_connection_table();
+
+    // Find the cells by their name
     Cell *cell1 = find_cell(cell1_name);
     Cell *cell2 = find_cell(cell2_name);
 
-    // Vérifie que les deux cellules ont été trouvées
+    // Check that both cells were found
     if (cell1 == NULL || cell2 == NULL)
     {
         printf("Error: One or both cells not found.\n");
         return;
     }
 
-    // Vérifie que les coordonnées sont dans les limites des cellules
+    // Check that the coordinates are within bounds for both cells
     if (x1 < 0 || x1 >= cell1->height || y1 < 0 || y1 >= cell1->width)
     {
         printf("Error: Coordinates (%d, %d) are out of bounds for cell %s.\n", x1, y1, cell1->name);
@@ -90,18 +99,18 @@ void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, i
         return;
     }
 
-    // Recherche des cases correspondantes dans chaque cellule
+    // Find the corresponding cases in each cell
     Case *case1 = cell1->cases[x1 * cell1->width + y1];
     Case *case2 = cell2->cases[x2 * cell2->width + y2];
 
-    // Vérifie que les cases existent
+    // Check that the cases exist
     if (case1 == NULL || case2 == NULL)
     {
         printf("Error: One or both cases could not be found.\n");
         return;
     }
 
-    // Créer la connexion
+    // Create the new connection
     Connection *new_connection = (Connection *)malloc(sizeof(Connection));
     if (new_connection == NULL)
     {
@@ -114,7 +123,7 @@ void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, i
     new_connection->cell2 = cell2;
     new_connection->case2 = case2;
 
-    // Ajouter la nouvelle connexion dans le tableau
+    // Add the new connection to the connection table
     connection_table[num_connections] = new_connection;
     num_connections++;
 
