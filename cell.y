@@ -29,11 +29,13 @@ statements:
     ;
 
 statement:
+    // Crear un nuevo autómata
     CREATE_AUTOMATON ID {
         create_automaton($2);
     }
-    | CREATE_CELL ID ID NUM NUM NUM NUM NUM NUM {
-        Cell *new_cell = create_cell($3, (int)$4, (int)$5, (int)$6, (int)$7, (int)$8, (int)$9);
+    // Crear una nueva celda con los parámetros adicionales (D y V)
+    | CREATE_CELL ID ID NUM NUM NUM NUM NUM NUM NUM NUM {
+        Cell *new_cell = create_cell($3, (int)$4, (int)$5, (int)$6, (int)$7, (int)$8, (int)$9, (int)$10, (int)$11);
         Automaton *automaton = find_automaton($2);
         if (automaton != NULL) {
             add_cell_to_automaton(automaton, new_cell);
@@ -41,17 +43,20 @@ statement:
             printf("Error: Automaton %s not found.\n", $2);
         }
     }
+    // Conectar celdas entre autómatas
     | CONNECT_AC ID ID NUM NUM ID ID NUM NUM {
         connect_cells_ac($2, $3, (int)$4, (int)$5, $6, $7, (int)$8, (int)$9);
     }
+    // Imprimir todas las celdas
     | PRINT_CELLS {
         print_cells();
     }
+    // Imprimir todas las conexiones
     | PRINT_CONNECTIONS {
         print_connections();
     }
+    // Imprimir el estado de una celda o autómata específico
     | PRINT ID {
-        // Imprimir estado de una celda o autómata
         Cell *cell = find_cell($2);
         if (cell != NULL) {
             print_cell_state($2);
@@ -64,20 +69,24 @@ statement:
             }
         }
     }
+    // Imprimir el estado de todos los autómatas y celdas
     | PRINT ALL {
         print_all_states();
     }
-    | SET_RATES NUM NUM NUM NUM {
-        set_rates($2, $3, $4, $5);
-        printf("Rates updated.\n");
+    // Establecer nuevas tasas
+    | SET_RATES NUM NUM NUM NUM NUM NUM {
+        set_rates($2, $3, $4, $5, $6, $7);
     }
+    // Simulación del sistema
     | SIMULATE NUM {
         simulate((int)$2, allow_movement);
     }
+    // Permitir el movimiento entre celdas
     | ALLOW_MOVEMENT {
         allow_movement = 1;
         printf("Movement between cells allowed.\n");
     }
+    // Restringir el movimiento entre celdas (confinamiento)
     | DISALLOW_MOVEMENT {
         allow_movement = 0;
         printf("Movement between cells disallowed.\n");

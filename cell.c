@@ -19,10 +19,12 @@ double beta = 0.3;   // Tasa de infección (S->E)
 double sigma = 0.1;  // Tasa de exposición (E->I)
 double gamma_ = 0.05; // Tasa de recuperación (I->R)
 double mu = 0.02;     // Tasa de mortalidad (I->Removidos)
+double delta = 0.01;  // Tasa de mortalidad para modelos como SEIRD
+double rho = 0.05;    // Tasa de pérdida de inmunidad (R->S para SEIRV)
 int allow_movement = 1; // Por defecto, se permite el movimiento
 
 // Crear un caso con coordenadas y estados iniciales
-Case *create_case(int x, int y, int initial_S, int initial_E, int initial_I, int initial_R)
+Case *create_case(int x, int y, int initial_S, int initial_E, int initial_I, int initial_R, int initial_D, int initial_V)
 {
     Case *new_case = (Case *)malloc(sizeof(Case));
     new_case->x = x;
@@ -31,13 +33,15 @@ Case *create_case(int x, int y, int initial_S, int initial_E, int initial_I, int
     new_case->E = initial_E;
     new_case->I = initial_I;
     new_case->R = initial_R;
+    new_case->D = initial_D;  // Inicializar Fallecidos
+    new_case->V = initial_V;  // Inicializar Vacunados
     new_case->neighbors = NULL;
     new_case->num_neighbors = 0;
     return new_case;
 }
 
 // Crear una celda con dimensiones y estados iniciales para los casos
-Cell *create_cell(char *name, int height, int width, int initial_S, int initial_E, int initial_I, int initial_R)
+Cell *create_cell(char *name, int height, int width, int initial_S, int initial_E, int initial_I, int initial_R, int initial_D, int initial_V)
 {
     Cell *new_cell = (Cell *)malloc(sizeof(Cell));
     new_cell->name = strdup(name);
@@ -52,7 +56,7 @@ Cell *create_cell(char *name, int height, int width, int initial_S, int initial_
     {
         for (int j = 0; j < width; j++)
         {
-            new_cell->cases[i * width + j] = create_case(i, j, initial_S, initial_E, initial_I, initial_R);
+            new_cell->cases[i * width + j] = create_case(i, j, initial_S, initial_E, initial_I, initial_R, initial_D, initial_V);
         }
     }
 
@@ -267,9 +271,10 @@ void print_cells()
             for (int k = 0; k < cell_table[i]->width; k++)
             {
                 Case *current_case = cell_table[i]->cases[j * cell_table[i]->width + k];
-                printf("  Case (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f\n",
+                printf("  Case (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f, D=%.2f, V=%.2f\n",
                        current_case->x, current_case->y,
-                       current_case->S, current_case->E, current_case->I, current_case->R);
+                       current_case->S, current_case->E, current_case->I, current_case->R,
+                       current_case->D, current_case->V);
             }
         }
     }
@@ -304,9 +309,10 @@ void print_cell_state(char *cell_name)
         for (int k = 0; k < cell->width; k++)
         {
             Case *current_case = cell->cases[j * cell->width + k];
-            printf("  Case (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f\n",
+            printf("  Case (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f, D=%.2f, V=%.2f\n",
                    current_case->x, current_case->y,
-                   current_case->S, current_case->E, current_case->I, current_case->R);
+                   current_case->S, current_case->E, current_case->I, current_case->R,
+                   current_case->D, current_case->V);
         }
     }
 }
@@ -339,15 +345,19 @@ void print_all_states()
 }
 
 // Establecer nuevas tasas
-void set_rates(double new_beta, double new_sigma, double new_gamma, double new_mu)
+void set_rates(double new_beta, double new_sigma, double new_gamma, double new_mu, double new_delta, double new_rho)
 {
     beta = new_beta;
     sigma = new_sigma;
     gamma_ = new_gamma;
     mu = new_mu;
+    delta = new_delta;
+    rho = new_rho;
+    printf("Rates updated: beta=%.2f, sigma=%.2f, gamma=%.2f, mu=%.2f, delta=%.2f, rho=%.2f\n",
+           beta, sigma, gamma_, mu, delta, rho);
 }
 
-// Simulación del modelo SEIR
+// Simulación del modelo SEIR, SEIRD o SEIRV
 void simulate(int steps, int allow_movement)
 {
     for (int step = 0; step < steps; step++)
@@ -375,6 +385,8 @@ void simulate(int steps, int allow_movement)
                 new_case->E = current_case->E;
                 new_case->I = current_case->I;
                 new_case->R = current_case->R;
+                new_case->D = current_case->D;
+                new_case->V = current_case->V;
                 new_case->num_neighbors = current_case->num_neighbors;
                 new_case->neighbors = NULL; // Lo actualizaremos después
                 new_cases[idx] = new_case;
@@ -421,26 +433,31 @@ void simulate(int steps, int allow_movement)
                 Case *new_case = new_cases[idx];
 
                 // Cálculo de la población total
-                double N = current_case->S + current_case->E + current_case->I + current_case->R;
+                double N = current_case->S + current_case->E + current_case->I + current_case->R + current_case->D + current_case->V;
                 if (N == 0) N = 1; // Evitar división por cero
 
                 // Transiciones internas en la celda
                 double new_exposed = beta * current_case->S * current_case->I / N;
                 double new_infected = sigma * current_case->E;
                 double new_recovered = gamma_ * current_case->I;
-                double new_deaths = mu * current_case->I;
+                double new_deaths = delta * current_case->I;
+                double new_vaccinated = rho * current_case->R;
 
                 // Actualizar estados con precisión decimal
                 new_case->S -= new_exposed;
                 new_case->E += new_exposed - new_infected;
                 new_case->I += new_infected - new_recovered - new_deaths;
-                new_case->R += new_recovered + new_deaths;
+                new_case->R += new_recovered;
+                new_case->D += new_deaths;
+                new_case->V += new_vaccinated;
 
                 // Asegurar que los valores no sean negativos
                 if (new_case->S < 0) new_case->S = 0;
                 if (new_case->E < 0) new_case->E = 0;
                 if (new_case->I < 0) new_case->I = 0;
                 if (new_case->R < 0) new_case->R = 0;
+                if (new_case->D < 0) new_case->D = 0;
+                if (new_case->V < 0) new_case->V = 0;
 
                 // Movimiento entre celdas
                 if (allow_movement)
@@ -471,17 +488,21 @@ void simulate(int steps, int allow_movement)
                 int E_int = (int)round(new_case->E);
                 int I_int = (int)round(new_case->I);
                 int R_int = (int)round(new_case->R);
+                int D_int = (int)round(new_case->D);
+                int V_int = (int)round(new_case->V);
 
                 // Actualizar los valores de new_case con los valores enteros
                 new_case->S = S_int;
                 new_case->E = E_int;
                 new_case->I = I_int;
                 new_case->R = R_int;
+                new_case->D = D_int;
+                new_case->V = V_int;
 
                 // Imprimir el estado actual de la celda
-                printf("Cell %s (%d,%d): S=%d, E=%d, I=%d, R=%d\n",
+                printf("Cell %s (%d,%d): S=%d, E=%d, I=%d, R=%d, D=%d, V=%d\n",
                        cell->name, new_case->x, new_case->y,
-                       S_int, E_int, I_int, R_int);
+                       S_int, E_int, I_int, R_int, D_int, V_int);
             }
 
             // Reemplazar los casos antiguos con los nuevos

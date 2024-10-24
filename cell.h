@@ -13,6 +13,8 @@ typedef struct Case
     double E;    // Expuestos
     double I;    // Infectados
     double R;    // Recuperados
+    double D;    // Fallecidos
+    double V;    // Vacunados
     struct Case **neighbors; // Vecinos
     int num_neighbors;       // Número de vecinos
 } Case;
@@ -56,11 +58,13 @@ extern double beta;   // Tasa de infección (S->E)
 extern double sigma;  // Tasa de exposición (E->I)
 extern double gamma_; // Tasa de recuperación (I->R)
 extern double mu;     // Tasa de mortalidad (I->Removidos)
+extern double delta;  // Tasa de mortalidad (I->D para SEIRD)
+extern double rho;    // Tasa de pérdida de inmunidad (R->S para SEIRV)
 extern int allow_movement; // Control de movimiento
 
 // Funciones declaradas
-Cell *create_cell(char *name, int height, int width, int initial_S, int initial_E, int initial_I, int initial_R);
-Case *create_case(int x, int y, int initial_S, int initial_E, int initial_I, int initial_R);
+Cell *create_cell(char *name, int height, int width, int initial_S, int initial_E, int initial_I, int initial_R, int initial_D, int initial_V);
+Case *create_case(int x, int y, int initial_S, int initial_E, int initial_I, int initial_R, int initial_D, int initial_V);
 void assign_neighbors(Cell *cell);
 void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2);
 void connect_cells_ac(char *automaton1_name, char *cell1_name, int x1, int y1,
@@ -78,7 +82,7 @@ Cell *find_cell(char *name);
 Automaton *find_automaton(char *name);
 Cell *find_cell_in_automaton(Automaton *automaton, char *cell_name);
 void initialize_connection_table();
-void set_rates(double new_beta, double new_sigma, double new_gamma, double new_mu);
+void set_rates(double new_beta, double new_sigma, double new_gamma, double new_mu, double new_delta, double new_rho);
 void simulate(int steps, int allow_movement);
 
 #endif // CELL_H
