@@ -3,6 +3,7 @@ all: main
 main: lex.yy.c cell.tab.c cell.o main.o
 	gcc -o main lex.yy.c cell.tab.c cell.o main.o -lfl -lm
 
+
 cell.o: cell.c cell.h
 	gcc -c cell.c
 

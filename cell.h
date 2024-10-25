@@ -73,6 +73,9 @@ void add_cell(Cell *new_cell);
 void add_cell_to_automaton(Automaton *automaton, Cell *new_cell);
 Automaton *create_automaton(char *name);
 void add_automaton(Automaton *new_automaton);
+
+void print_cell(Cell *cell);
+
 void print_cells();
 void print_connections();
 void print_cell_state(char *cell_name);
