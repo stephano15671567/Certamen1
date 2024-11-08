@@ -11,85 +11,85 @@
     double num;
 }
 
-%token CREATE_AUTOMATON CREATE_CELL CONNECT_AC PRINT_CELLS PRINT_CONNECTIONS PRINT
-%token SET_RATES SIMULATE ALLOW_MOVEMENT DISALLOW_MOVEMENT
-%token ALL
+%token CREAR_AUTOMATA CREAR_CELDA CONECTAR_AC IMPRIMIR_CELDAS IMPRIMIR_CONEXIONES IMPRIMIR
+%token ESTABLECER_TASAS SIMULAR PERMITIR_MOVIMIENTO RESTRINGIR_MOVIMIENTO
+%token TODOS
 %token <str> ID
 %token <num> NUM
 
 %%
 
-program:
-    statements
+programa:
+    instrucciones
     ;
 
-statements:
-    statement
-    | statements statement
+instrucciones:
+    instruccion
+    | instrucciones instruccion
     ;
 
-statement:
+instruccion:
     // Crear un nuevo autómata
-    CREATE_AUTOMATON ID {
-        create_automaton($2);
+    CREAR_AUTOMATA ID {
+        crear_automata($2);
     }
     // Crear una nueva celda con los parámetros adicionales (D y V)
-    | CREATE_CELL ID ID NUM NUM NUM NUM NUM NUM NUM NUM {
-        Cell *new_cell = create_cell($3, (int)$4, (int)$5, (int)$6, (int)$7, (int)$8, (int)$9, (int)$10, (int)$11);
-        Automaton *automaton = find_automaton($2);
-        if (automaton != NULL) {
-            add_cell_to_automaton(automaton, new_cell);
+    | CREAR_CELDA ID ID NUM NUM NUM NUM NUM NUM NUM NUM {
+        Celda *nueva_celda = crear_celda($3, (int)$4, (int)$5, (int)$6, (int)$7, (int)$8, (int)$9, (int)$10, (int)$11);
+        Automata *automata = encontrar_automata($2);
+        if (automata != NULL) {
+            agregar_celda_a_automata(automata, nueva_celda);
         } else {
-            printf("Error: Automaton %s not found.\n", $2);
+            printf("Error: Autómata %s no encontrado.\n", $2);
         }
     }
     // Conectar celdas entre autómatas
-    | CONNECT_AC ID ID NUM NUM ID ID NUM NUM {
-        connect_cells_ac($2, $3, (int)$4, (int)$5, $6, $7, (int)$8, (int)$9);
+    | CONECTAR_AC ID ID NUM NUM ID ID NUM NUM {
+        conectar_celdas_ac($2, $3, (int)$4, (int)$5, $6, $7, (int)$8, (int)$9);
     }
     // Imprimir todas las celdas
-    | PRINT_CELLS {
-        print_cells();
+    | IMPRIMIR_CELDAS {
+        imprimir_celdas();
     }
     // Imprimir todas las conexiones
-    | PRINT_CONNECTIONS {
-        print_connections();
+    | IMPRIMIR_CONEXIONES {
+        imprimir_conexiones();
     }
     // Imprimir el estado de una celda o autómata específico
-    | PRINT ID {
-        Cell *cell = find_cell($2);
-        if (cell != NULL) {
-            print_cell_state($2);
+    | IMPRIMIR ID {
+        Celda *celda = encontrar_celda($2);
+        if (celda != NULL) {
+            imprimir_estado_celda($2);
         } else {
-            Automaton *automaton = find_automaton($2);
-            if (automaton != NULL) {
-                print_automaton_state($2);
+            Automata *automata = encontrar_automata($2);
+            if (automata != NULL) {
+                imprimir_estado_automata($2);
             } else {
-                printf("Error: Cell or Automaton %s not found.\n", $2);
+                printf("Error: Celda o Autómata %s no encontrado.\n", $2);
             }
         }
     }
     // Imprimir el estado de todos los autómatas y celdas
-    | PRINT ALL {
-        print_all_states();
+    | IMPRIMIR TODOS {
+        imprimir_todos_estados();
     }
     // Establecer nuevas tasas
-    | SET_RATES NUM NUM NUM NUM NUM NUM {
-        set_rates($2, $3, $4, $5, $6, $7);
+    | ESTABLECER_TASAS NUM NUM NUM NUM NUM NUM {
+        establecer_tasas($2, $3, $4, $5, $6, $7);
     }
     // Simulación del sistema
-    | SIMULATE NUM {
-        simulate((int)$2, allow_movement);
+    | SIMULAR NUM {
+        simular((int)$2, permitir_movimiento);
     }
     // Permitir el movimiento entre celdas
-    | ALLOW_MOVEMENT {
-        allow_movement = 1;
-        printf("Movement between cells allowed.\n");
+    | PERMITIR_MOVIMIENTO {
+        permitir_movimiento = 1;
+        printf("Movimiento entre celdas permitido.\n");
     }
     // Restringir el movimiento entre celdas (confinamiento)
-    | DISALLOW_MOVEMENT {
-        allow_movement = 0;
-        printf("Movement between cells disallowed.\n");
+    | RESTRINGIR_MOVIMIENTO {
+        permitir_movimiento = 0;
+        printf("Movimiento entre celdas restringido.\n");
     }
     ;
 

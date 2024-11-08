@@ -2,17 +2,18 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>  // Para usar la función round()
+#include <math.h>
+#include <stddef.h>
 
-#define INITIAL_CONNECTION_SIZE 10
+#define TAMANO_INICIAL_CONEXION 10
 
 // Tablas globales
-Connection **connection_table = NULL;
-int num_connections = 0;
-Cell **cell_table = NULL;
-int num_cells = 0;
-Automaton **automaton_table = NULL;
-int num_automata = 0;
+Conexion **tabla_conexiones = NULL;
+int num_conexiones = 0;
+Celda **tabla_celdas = NULL;
+int num_celdas = 0;
+Automata **tabla_automatas = NULL;
+int num_automatas = 0;
 
 // Variables globales para las tasas
 double beta = 0.3;   // Tasa de infección (S->E)
@@ -21,76 +22,76 @@ double gamma_ = 0.05; // Tasa de recuperación (I->R)
 double mu = 0.02;     // Tasa de mortalidad (I->Removidos)
 double delta = 0.01;  // Tasa de mortalidad para modelos como SEIRD
 double rho = 0.05;    // Tasa de pérdida de inmunidad (R->S para SEIRV)
-int allow_movement = 1; // Por defecto, se permite el movimiento
+int permitir_movimiento = 1; // Por defecto, se permite el movimiento
 
 // Crear un caso con coordenadas y estados iniciales
-Case *create_case(int x, int y, int initial_S, int initial_E, int initial_I, int initial_R, int initial_D, int initial_V)
+Caso *crear_caso(int x, int y, int S_inicial, int E_inicial, int I_inicial, int R_inicial, int D_inicial, int V_inicial)
 {
-    Case *new_case = (Case *)malloc(sizeof(Case));
-    if (new_case == NULL) {
-        perror("Error al asignar memoria para new_case");
+    Caso *nuevo_caso = (Caso *)malloc(sizeof(Caso));
+    if (nuevo_caso == NULL) {
+        perror("Error al asignar memoria para nuevo_caso");
         exit(EXIT_FAILURE);
     }
-    new_case->x = x;
-    new_case->y = y;
-    new_case->S = initial_S;
-    new_case->E = initial_E;
-    new_case->I = initial_I;
-    new_case->R = initial_R;
-    new_case->D = initial_D;  // Inicializar Fallecidos
-    new_case->V = initial_V;  // Inicializar Vacunados
-    new_case->neighbors = NULL;
-    new_case->num_neighbors = 0;
-    return new_case;
+    nuevo_caso->x = x;
+    nuevo_caso->y = y;
+    nuevo_caso->S = S_inicial;
+    nuevo_caso->E = E_inicial;
+    nuevo_caso->I = I_inicial;
+    nuevo_caso->R = R_inicial;
+    nuevo_caso->D = D_inicial;  // Inicializar Fallecidos
+    nuevo_caso->V = V_inicial;  // Inicializar Vacunados
+    nuevo_caso->vecinos = NULL;
+    nuevo_caso->num_vecinos = 0;
+    return nuevo_caso;
 }
 
 // Crear una celda con dimensiones y estados iniciales para los casos
-Cell *create_cell(char *name, int height, int width, int initial_S, int initial_E, int initial_I, int initial_R, int initial_D, int initial_V)
+Celda *crear_celda(char *nombre, int altura, int anchura, int S_inicial, int E_inicial, int I_inicial, int R_inicial, int D_inicial, int V_inicial)
 {
-    Cell *new_cell = (Cell *)malloc(sizeof(Cell));
-    if (new_cell == NULL) {
-        perror("Error al asignar memoria para new_cell");
+    Celda *nueva_celda = (Celda *)malloc(sizeof(Celda));
+    if (nueva_celda == NULL) {
+        perror("Error al asignar memoria para nueva_celda");
         exit(EXIT_FAILURE);
     }
-    new_cell->name = strdup(name);
-    new_cell->height = height;
-    new_cell->width = width;
+    nueva_celda->nombre = strdup(nombre);
+    nueva_celda->altura = altura;
+    nueva_celda->anchura = anchura;
 
     // Asignar memoria para los casos
-    new_cell->cases = (Case **)malloc(height * width * sizeof(Case *));
-    if (new_cell->cases == NULL) {
-        perror("Error al asignar memoria para cases en create_cell");
+    nueva_celda->casos = (Caso **)malloc(altura * anchura * sizeof(Caso *));
+    if (nueva_celda->casos == NULL) {
+        perror("Error al asignar memoria para casos en crear_celda");
         exit(EXIT_FAILURE);
     }
 
     // Inicializar cada caso con las coordenadas y los estados iniciales
-    for (int i = 0; i < height; i++)
+    for (int i = 0; i < altura; i++)
     {
-        for (int j = 0; j < width; j++)
+        for (int j = 0; j < anchura; j++)
         {
-            new_cell->cases[i * width + j] = create_case(i, j, initial_S, initial_E, initial_I, initial_R, initial_D, initial_V);
+            nueva_celda->casos[i * anchura + j] = crear_caso(i, j, S_inicial, E_inicial, I_inicial, R_inicial, D_inicial, V_inicial);
         }
     }
 
     // Asignar vecinos a los casos
-    assign_neighbors(new_cell);
+    asignar_vecinos(nueva_celda);
 
     // Agregar la celda a la tabla global de celdas
-    add_cell(new_cell);
+    agregar_celda(nueva_celda);
 
-    return new_cell;
+    return nueva_celda;
 }
 
 // Asignar vecinos a cada caso dentro de una celda (vecindad de Moore)
-void assign_neighbors(Cell *cell)
+void asignar_vecinos(Celda *celda)
 {
-    for (int i = 0; i < cell->height; i++)
+    for (int i = 0; i < celda->altura; i++)
     {
-        for (int j = 0; j < cell->width; j++)
+        for (int j = 0; j < celda->anchura; j++)
         {
-            Case *current_case = cell->cases[i * cell->width + j];
-            current_case->neighbors = (Case **)malloc(8 * sizeof(Case *));
-            current_case->num_neighbors = 0;
+            Caso *caso_actual = celda->casos[i * celda->anchura + j];
+            caso_actual->vecinos = (Caso **)malloc(8 * sizeof(Caso *));
+            caso_actual->num_vecinos = 0;
 
             // Vecindad de Moore
             for (int dx = -1; dx <= 1; dx++)
@@ -104,10 +105,10 @@ void assign_neighbors(Cell *cell)
                     int ny = j + dy;
 
                     // Verificar si las coordenadas están dentro de la celda
-                    if (nx >= 0 && nx < cell->height && ny >= 0 && ny < cell->width)
+                    if (nx >= 0 && nx < celda->altura && ny >= 0 && ny < celda->anchura)
                     {
-                        Case *neighbor_case = cell->cases[nx * cell->width + ny];
-                        current_case->neighbors[current_case->num_neighbors++] = neighbor_case;
+                        Caso *caso_vecino = celda->casos[nx * celda->anchura + ny];
+                        caso_actual->vecinos[caso_actual->num_vecinos++] = caso_vecino;
                     }
                 }
             }
@@ -116,598 +117,490 @@ void assign_neighbors(Cell *cell)
 }
 
 // Agregar una celda a la tabla global
-void add_cell(Cell *new_cell)
+void agregar_celda(Celda *nueva_celda)
 {
-    num_cells++;
-    cell_table = (Cell **)realloc(cell_table, num_cells * sizeof(Cell *));
-    if (cell_table == NULL) {
-        perror("Error al asignar memoria para cell_table");
+    num_celdas++;
+    tabla_celdas = (Celda **)realloc(tabla_celdas, num_celdas * sizeof(Celda *));
+    if (tabla_celdas == NULL) {
+        perror("Error al asignar memoria para tabla_celdas");
         exit(EXIT_FAILURE);
     }
-    cell_table[num_cells - 1] = new_cell;
+    tabla_celdas[num_celdas - 1] = nueva_celda;
 }
 
 // Crear un autómata
-Automaton *create_automaton(char *name)
+Automata *crear_automata(char *nombre)
 {
-    Automaton *new_automaton = (Automaton *)malloc(sizeof(Automaton));
-    if (new_automaton == NULL) {
-        perror("Error al asignar memoria para new_automaton");
+    Automata *nuevo_automata = (Automata *)malloc(sizeof(Automata));
+    if (nuevo_automata == NULL) {
+        perror("Error al asignar memoria para nuevo_automata");
         exit(EXIT_FAILURE);
     }
-    new_automaton->name = strdup(name);
-    new_automaton->cells = NULL;
-    new_automaton->num_cells = 0;
+    nuevo_automata->nombre = strdup(nombre);
+    nuevo_automata->celdas = NULL;
+    nuevo_automata->num_celdas = 0;
 
     // Agregar el autómata a la tabla global
-    add_automaton(new_automaton);
+    agregar_automata(nuevo_automata);
 
-    return new_automaton;
+    return nuevo_automata;
 }
 
 // Agregar una celda a un autómata
-void add_cell_to_automaton(Automaton *automaton, Cell *new_cell)
+void agregar_celda_a_automata(Automata *automata, Celda *nueva_celda)
 {
-    automaton->num_cells++;
-    automaton->cells = (Cell **)realloc(automaton->cells, automaton->num_cells * sizeof(Cell *));
-    if (automaton->cells == NULL) {
-        perror("Error al asignar memoria para cells en add_cell_to_automaton");
+    automata->num_celdas++;
+    automata->celdas = (Celda **)realloc(automata->celdas, automata->num_celdas * sizeof(Celda *));
+    if (automata->celdas == NULL) {
+        perror("Error al asignar memoria para celdas en agregar_celda_a_automata");
         exit(EXIT_FAILURE);
     }
-    automaton->cells[automaton->num_cells - 1] = new_cell;
+    automata->celdas[automata->num_celdas - 1] = nueva_celda;
 }
 
 // Agregar un autómata a la tabla global
-void add_automaton(Automaton *new_automaton)
+void agregar_automata(Automata *nuevo_automata)
 {
-    num_automata++;
-    automaton_table = (Automaton **)realloc(automaton_table, num_automata * sizeof(Automaton *));
-    if (automaton_table == NULL) {
-        perror("Error al asignar memoria para automaton_table");
+    num_automatas++;
+    tabla_automatas = (Automata **)realloc(tabla_automatas, num_automatas * sizeof(Automata *));
+    if (tabla_automatas == NULL) {
+        perror("Error al asignar memoria para tabla_automatas");
         exit(EXIT_FAILURE);
     }
-    automaton_table[num_automata - 1] = new_automaton;
+    tabla_automatas[num_automatas - 1] = nuevo_automata;
 }
 
 // Inicializar la tabla de conexiones
-void initialize_connection_table()
+void inicializar_tabla_conexiones()
 {
-    if (connection_table == NULL)
+    if (tabla_conexiones == NULL)
     {
-        connection_table = (Connection **)malloc(INITIAL_CONNECTION_SIZE * sizeof(Connection *));
-        if (connection_table == NULL) {
-            perror("Error al asignar memoria para connection_table");
+        tabla_conexiones = (Conexion **)malloc(TAMANO_INICIAL_CONEXION * sizeof(Conexion *));
+        if (tabla_conexiones == NULL) {
+            perror("Error al asignar memoria para tabla_conexiones");
             exit(EXIT_FAILURE);
         }
-        num_connections = 0;
+        num_conexiones = 0;
     }
 }
 
 // Conectar celdas entre autómatas
-void connect_cells_ac(char *automaton1_name, char *cell1_name, int x1, int y1,
-                      char *automaton2_name, char *cell2_name, int x2, int y2)
+void conectar_celdas_ac(char *nombre_automata1, char *nombre_celda1, int x1, int y1,
+                        char *nombre_automata2, char *nombre_celda2, int x2, int y2)
 {
-    Automaton *automaton1 = find_automaton(automaton1_name);
-    Automaton *automaton2 = find_automaton(automaton2_name);
+    Automata *automata1 = encontrar_automata(nombre_automata1);
+    Automata *automata2 = encontrar_automata(nombre_automata2);
 
-    if (automaton1 == NULL || automaton2 == NULL)
+    if (automata1 == NULL || automata2 == NULL)
     {
-        printf("Error: One or both automata not found.\n");
+        printf("Error: Uno o ambos autómatas no fueron encontrados.\n");
         return;
     }
 
-    Cell *cell1 = find_cell_in_automaton(automaton1, cell1_name);
-    Cell *cell2 = find_cell_in_automaton(automaton2, cell2_name);
+    Celda *celda1 = encontrar_celda_en_automata(automata1, nombre_celda1);
+    Celda *celda2 = encontrar_celda_en_automata(automata2, nombre_celda2);
 
-    if (cell1 == NULL || cell2 == NULL)
+    if (celda1 == NULL || celda2 == NULL)
     {
-        printf("Error: One or both cells not found.\n");
+        printf("Error: Una o ambas celdas no fueron encontradas.\n");
         return;
     }
 
-    connect_cells(cell1->name, x1, y1, cell2->name, x2, y2);
+    conectar_celdas(celda1->nombre, x1, y1, celda2->nombre, x2, y2);
 }
 
+
 // Conectar dos celdas y agregar los casos como vecinos mutuos
-void connect_cells(char *cell1_name, int x1, int y1, char *cell2_name, int x2, int y2)
+void conectar_celdas(char *nombre_celda1, int x1, int y1, char *nombre_celda2, int x2, int y2)
 {
-    initialize_connection_table();
+    inicializar_tabla_conexiones();
 
-    Cell *cell1 = find_cell(cell1_name);
-    Cell *cell2 = find_cell(cell2_name);
+    Celda *celda1 = encontrar_celda(nombre_celda1);
+    Celda *celda2 = encontrar_celda(nombre_celda2);
 
-    if (cell1 == NULL || cell2 == NULL)
+    if (celda1 == NULL || celda2 == NULL)
     {
-        printf("Error: One or both cells not found.\n");
+        printf("Error: Una o ambas celdas no fueron encontradas.\n");
         return;
     }
 
-    Case *case1 = cell1->cases[x1 * cell1->width + y1];
-    Case *case2 = cell2->cases[x2 * cell2->width + y2];
+    Caso *caso1 = celda1->casos[x1 * celda1->anchura + y1];
+    Caso *caso2 = celda2->casos[x2 * celda2->anchura + y2];
 
-    if (case1 == NULL || case2 == NULL)
+    if (caso1 == NULL || caso2 == NULL)
     {
-        printf("Error: One or both cases could not be found.\n");
+        printf("Error: Uno o ambos casos no pudieron ser encontrados.\n");
         return;
     }
 
     // Agregar los casos como vecinos mutuos
-    case1->neighbors = (Case **)realloc(case1->neighbors, (case1->num_neighbors + 1) * sizeof(Case *));
-    case1->neighbors[case1->num_neighbors++] = case2;
+    caso1->vecinos = (Caso **)realloc(caso1->vecinos, (caso1->num_vecinos + 1) * sizeof(Caso *));
+    caso1->vecinos[caso1->num_vecinos++] = caso2;
 
-    case2->neighbors = (Case **)realloc(case2->neighbors, (case2->num_neighbors + 1) * sizeof(Case *));
-    case2->neighbors[case2->num_neighbors++] = case1;
+    caso2->vecinos = (Caso **)realloc(caso2->vecinos, (caso2->num_vecinos + 1) * sizeof(Caso *));
+    caso2->vecinos[caso2->num_vecinos++] = caso1;
 
     // Registrar la conexión en la tabla de conexiones
-    Connection *new_connection = (Connection *)malloc(sizeof(Connection));
-    if (new_connection == NULL) {
-        perror("Error al asignar memoria para new_connection");
+    Conexion *nueva_conexion = (Conexion *)malloc(sizeof(Conexion));
+    if (nueva_conexion == NULL) {
+        perror("Error al asignar memoria para nueva_conexion");
         exit(EXIT_FAILURE);
     }
-    new_connection->cell1 = cell1;
-    new_connection->case1 = case1;
-    new_connection->cell2 = cell2;
-    new_connection->case2 = case2;
+    nueva_conexion->celda1 = celda1;
+    nueva_conexion->caso1 = caso1;
+    nueva_conexion->celda2 = celda2;
+    nueva_conexion->caso2 = caso2;
 
-    connection_table[num_connections] = new_connection;
-    num_connections++;
+    tabla_conexiones[num_conexiones] = nueva_conexion;
+    num_conexiones++;
 
-    printf("Cases (%d, %d) from %s and (%d, %d) from %s are now connected.\n",
-           x1, y1, cell1->name, x2, y2, cell2->name);
+    printf("Casos (%d, %d) de %s y (%d, %d) de %s están ahora conectados.\n",
+           x1, y1, celda1->nombre, x2, y2, celda2->nombre);
 }
 
 // Encontrar una celda por nombre
-Cell *find_cell(char *name)
+Celda *encontrar_celda(char *nombre)
 {
-    for (int i = 0; i < num_cells; i++)
+    for (int i = 0; i < num_celdas; i++)
     {
-        if (strcmp(cell_table[i]->name, name) == 0)
+        if (strcmp(tabla_celdas[i]->nombre, nombre) == 0)
         {
-            return cell_table[i];
+            return tabla_celdas[i];
         }
     }
     return NULL;
 }
 
 // Encontrar un autómata por nombre
-Automaton *find_automaton(char *name)
+Automata *encontrar_automata(char *nombre)
 {
-    for (int i = 0; i < num_automata; i++)
+    for (int i = 0; i < num_automatas; i++)
     {
-        if (strcmp(automaton_table[i]->name, name) == 0)
+        if (strcmp(tabla_automatas[i]->nombre, nombre) == 0)
         {
-            return automaton_table[i];
+            return tabla_automatas[i];
         }
     }
     return NULL;
 }
 
 // Encontrar una celda dentro de un autómata
-Cell *find_cell_in_automaton(Automaton *automaton, char *cell_name)
+Celda *encontrar_celda_en_automata(Automata *automata, char *nombre_celda)
 {
-    for (int i = 0; i < automaton->num_cells; i++)
+    for (int i = 0; i < automata->num_celdas; i++)
     {
-        if (strcmp(automaton->cells[i]->name, cell_name) == 0)
+        if (strcmp(automata->celdas[i]->nombre, nombre_celda) == 0)
         {
-            return automaton->cells[i];
+            return automata->celdas[i];
         }
     }
     return NULL;
 }
 
 // Imprimir todas las celdas y sus casos
-void print_cells()
+void imprimir_celdas()
 {
-    printf("List of cells:\n");
-    for (int i = 0; i < num_cells; i++)
+    printf("Lista de celdas:\n");
+    for (int i = 0; i < num_celdas; i++)
     {
-        printf("Cell %s: %d x %d\n", cell_table[i]->name, cell_table[i]->height, cell_table[i]->width);
-        for (int j = 0; j < cell_table[i]->height; j++)
+        printf("Celda %s: %d x %d\n", tabla_celdas[i]->nombre, tabla_celdas[i]->altura, tabla_celdas[i]->anchura);
+        for (int j = 0; j < tabla_celdas[i]->altura; j++)
         {
-            for (int k = 0; k < cell_table[i]->width; k++)
+            for (int k = 0; k < tabla_celdas[i]->anchura; k++)
             {
-                Case *current_case = cell_table[i]->cases[j * cell_table[i]->width + k];
-                printf("  Case (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f, D=%.2f, V=%.2f\n",
-                       current_case->x, current_case->y,
-                       current_case->S, current_case->E, current_case->I, current_case->R,
-                       current_case->D, current_case->V);
+                Caso *caso_actual = tabla_celdas[i]->casos[j * tabla_celdas[i]->anchura + k];
+                printf("  Caso (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f, D=%.2f, V=%.2f\n",
+                       caso_actual->x, caso_actual->y,
+                       caso_actual->S, caso_actual->E, caso_actual->I, caso_actual->R,
+                       caso_actual->D, caso_actual->V);
             }
         }
-        print_cell(cell_table[i]);
+        imprimir_celda(tabla_celdas[i]);
     }
 }
 
-// Imprimir el estado detallado de una celda (visualización con compartimentos)
-void print_cell(Cell *cell)
-{
-    printf("Cell %s:\n", cell->name);
+#include <stddef.h> // Necesario para offsetof
 
-    // Parte superior de las casillas por filas
-    for (int j = 0; j < cell->height; j++)
-    {
-        // Para cada fila, recorrer todas las columnas
-        for (int k = 0; k < cell->width; k++)
-        {
+void imprimir_celda(Celda *celda) {
+    printf("Celda %s:\n", celda->nombre);
+
+    // Nombres de los compartimentos y offsets en la estructura Caso
+    const char *compartimentos[] = {"S", "E", "I", "R", "D", "V"};
+    size_t offsets[] = {
+        offsetof(Caso, S),
+        offsetof(Caso, E),
+        offsetof(Caso, I),
+        offsetof(Caso, R),
+        offsetof(Caso, D),
+        offsetof(Caso, V)
+    };
+    int num_compartimentos = sizeof(compartimentos) / sizeof(compartimentos[0]);
+
+    for (int j = 0; j < celda->altura; j++) {
+        // Imprimir la parte superior de las casillas
+        for (int k = 0; k < celda->anchura; k++)
             printf("+-------+  ");
-        }
-        printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| (%d, %d) |  ", current_case->x, current_case->y);
-        }
-        printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            printf("+-------+  ");
-        }
         printf("\n");
 
-        // Imprimir la información de cada compartimento en la fila
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| S: %3d |  ", (int)round(current_case->S));
+        // Imprimir las coordenadas de las casillas
+        for (int k = 0; k < celda->anchura; k++) {
+            Caso *caso_actual = celda->casos[j * celda->anchura + k];
+            printf("| (%d,%d) |  ", caso_actual->x, caso_actual->y);
         }
         printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| E: %3d |  ", (int)round(current_case->E));
-        }
+
+        // Imprimir la parte inferior de las casillas
+        for (int k = 0; k < celda->anchura; k++)
+            printf("+-------+  ");
         printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| I: %3d |  ", (int)round(current_case->I));
+
+        // Imprimir la información de cada compartimento
+        for (int c = 0; c < num_compartimentos; c++) {
+            for (int k = 0; k < celda->anchura; k++) {
+                Caso *caso_actual = celda->casos[j * celda->anchura + k];
+                double valor = *(double *)((char *)caso_actual + offsets[c]);
+                printf("| %s: %3d |  ", compartimentos[c], (int)round(valor));
+            }
+            printf("\n");
         }
-        printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| R: %3d |  ", (int)round(current_case->R));
-        }
-        printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| D: %3d |  ", (int)round(current_case->D));
-        }
-        printf("\n");
-        for (int k = 0; k < cell->width; k++)
-        {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("| V: %3d |  ", (int)round(current_case->V));
-        }
-        printf("\n");
 
         // Separador inferior de las casillas
-        for (int k = 0; k < cell->width; k++)
-        {
+        for (int k = 0; k < celda->anchura; k++)
             printf("+-------+  ");
-        }
         printf("\n\n");
     }
 }
 
+
+
 // Imprimir el estado de un autómata específico
-void print_automaton_state(char *automaton_name)
+void imprimir_estado_automata(char *nombre_automata)
 {
-    Automaton *automaton = find_automaton(automaton_name);
-    if (automaton == NULL)
+    Automata *automata = encontrar_automata(nombre_automata);
+    if (automata == NULL)
     {
-        printf("Automaton %s not found.\n", automaton_name);
+        printf("Autómata %s no encontrado.\n", nombre_automata);
         return;
     }
 
-    printf("State of Automaton %s:\n", automaton->name);
-    for (int i = 0; i < automaton->num_cells; i++)
+    printf("Estado del Autómata %s:\n", automata->nombre);
+    for (int i = 0; i < automata->num_celdas; i++)
     {
-        print_cell(automaton->cells[i]);
+        imprimir_celda(automata->celdas[i]);
     }
 }
 
 // Imprimir el estado de todas las celdas y autómatas
-void print_all_states()
+void imprimir_todos_estados()
 {
-    printf("State of all Automata and Cells:\n");
-    for (int i = 0; i < num_automata; i++)
+    printf("Estado de todos los autómatas y celdas:\n");
+    for (int i = 0; i < num_automatas; i++)
     {
-        print_automaton_state(automaton_table[i]->name);
+        imprimir_estado_automata(tabla_automatas[i]->nombre);
     }
 }
 
 // Imprimir todas las conexiones entre celdas
-void print_connections()
+void imprimir_conexiones()
 {
-    printf("List of connections:\n");
-    for (int i = 0; i < num_connections; i++)
+    printf("Lista de conexiones:\n");
+    for (int i = 0; i < num_conexiones; i++)
     {
-        Connection *conn = connection_table[i];
-        printf("  Connection between Cell %s (%d, %d) and Cell %s (%d, %d)\n",
-               conn->cell1->name, conn->case1->x, conn->case1->y,
-               conn->cell2->name, conn->case2->x, conn->case2->y);
+        Conexion *conn = tabla_conexiones[i];
+        printf("  Conexión entre Celda %s (%d, %d) y Celda %s (%d, %d)\n",
+               conn->celda1->nombre, conn->caso1->x, conn->caso1->y,
+               conn->celda2->nombre, conn->caso2->x, conn->caso2->y);
     }
 }
 
 // Imprimir el estado de una celda específica
-void print_cell_state(char *cell_name)
+void imprimir_estado_celda(char *nombre_celda)
 {
-    Cell *cell = find_cell(cell_name);
-    if (cell == NULL)
+    Celda *celda = encontrar_celda(nombre_celda);
+    if (celda == NULL)
     {
-        printf("Cell %s not found.\n", cell_name);
+        printf("Celda %s no encontrada.\n", nombre_celda);
         return;
     }
 
-    printf("State of Cell %s:\n", cell->name);
-    for (int j = 0; j < cell->height; j++)
+    printf("Estado de la Celda %s:\n", celda->nombre);
+    for (int j = 0; j < celda->altura; j++)
     {
-        for (int k = 0; k < cell->width; k++)
+        for (int k = 0; k < celda->anchura; k++)
         {
-            Case *current_case = cell->cases[j * cell->width + k];
-            printf("  Case (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f, D=%.2f, V=%.2f\n",
-                   current_case->x, current_case->y,
-                   current_case->S, current_case->E, current_case->I, current_case->R,
-                   current_case->D, current_case->V);
+            Caso *caso_actual = celda->casos[j * celda->anchura + k];
+            printf("  Caso (%d, %d) -> S=%.2f, E=%.2f, I=%.2f, R=%.2f, D=%.2f, V=%.2f\n",
+                   caso_actual->x, caso_actual->y,
+                   caso_actual->S, caso_actual->E, caso_actual->I, caso_actual->R,
+                   caso_actual->D, caso_actual->V);
         }
     }
 }
 
 // Establecer nuevas tasas
-void set_rates(double new_beta, double new_sigma, double new_gamma, double new_mu, double new_delta, double new_rho)
+void establecer_tasas(double nueva_beta, double nuevo_sigma, double nuevo_gamma, double nuevo_mu, double nuevo_delta, double nuevo_rho)
 {
-    beta = new_beta;
-    sigma = new_sigma;
-    gamma_ = new_gamma;
-    mu = new_mu;
-    delta = new_delta;
-    rho = new_rho;
-    printf("Rates updated: beta=%.2f, sigma=%.2f, gamma=%.2f, mu=%.2f, delta=%.2f, rho=%.2f\n",
+    beta = nueva_beta;
+    sigma = nuevo_sigma;
+    gamma_ = nuevo_gamma;
+    mu = nuevo_mu;
+    delta = nuevo_delta;
+    rho = nuevo_rho;
+    printf("Tasas actualizadas: beta=%.2f, sigma=%.2f, gamma=%.2f, mu=%.2f, delta=%.2f, rho=%.2f\n",
            beta, sigma, gamma_, mu, delta, rho);
 }
 
-// Visualizar las celdas con todos los compartimentos
-void visualize_cells_with_all_compartments() {
+ 
+
+void visualizar_celdas_con_todos_compartimentos() {
     printf("\nEstado actual de las celdas con casillas mostrando todos los compartimentos:\n");
 
+    // Nombres de los compartimentos y offsets de sus valores en la estructura
+    const char *compartimentos[] = {"S", "E", "I", "R", "D", "V"};
+    size_t offsets[] = {offsetof(Caso, S), offsetof(Caso, E), offsetof(Caso, I),
+                        offsetof(Caso, R), offsetof(Caso, D), offsetof(Caso, V)};
+
     // Recorrer cada celda
-    for (int i = 0; i < num_cells; i++) {
-        Cell *cell = cell_table[i];
-        printf("Cell %s:\n", cell->name);
+    for (int i = 0; i < num_celdas; i++) {
+        Celda *celda = tabla_celdas[i];
+        printf("Celda %s:\n", celda->nombre);
 
-        // Parte superior de las casillas por filas
-        for (int j = 0; j < cell->height; j++) {
-            // Para cada fila, recorrer todas las columnas
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-
-                // Imprimir las coordenadas de la casilla
+        // Recorrer cada fila
+        for (int j = 0; j < celda->altura; j++) {
+            // Imprimir la parte superior de las casillas
+            for (int k = 0; k < celda->anchura; k++)
                 printf("+-------+  ");
-            }
             printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| (%d, %d) |  ", current_case->x, current_case->y);
-            }
-            printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("+-------+  ");
+
+            // Imprimir las coordenadas de las casillas
+            for (int k = 0; k < celda->anchura; k++) {
+                Caso *caso_actual = celda->casos[j * celda->anchura + k];
+                printf("| (%d,%d) |  ", caso_actual->x, caso_actual->y);
             }
             printf("\n");
 
-            // Imprimir la información de cada compartimento en la fila
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| S: %3d |  ", (int)round(current_case->S));
-            }
+            // Imprimir la parte inferior de las casillas
+            for (int k = 0; k < celda->anchura; k++)
+                printf("+-------+  ");
             printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| E: %3d |  ", (int)round(current_case->E));
+
+            // Imprimir la información de cada compartimento
+            for (int c = 0; c < 6; c++) { // 6 compartimentos
+                for (int k = 0; k < celda->anchura; k++) {
+                    Caso *caso_actual = celda->casos[j * celda->anchura + k];
+                    double valor_d = *(double *)((char *)caso_actual + offsets[c]);
+                    int valor = (int)round(valor_d);
+                    printf("| %s: %3d |  ", compartimentos[c], valor);
+                }
+                printf("\n");
             }
-            printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| I: %3d |  ", (int)round(current_case->I));
-            }
-            printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| R: %3d |  ", (int)round(current_case->R));
-            }
-            printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| D: %3d |  ", (int)round(current_case->D));
-            }
-            printf("\n");
-            for (int k = 0; k < cell->width; k++) {
-                Case *current_case = cell->cases[j * cell->width + k];
-                printf("| V: %3d |  ", (int)round(current_case->V));
-            }
-            printf("\n");
 
             // Separador inferior de las casillas
-            for (int k = 0; k < cell->width; k++) {
+            for (int k = 0; k < celda->anchura; k++)
                 printf("+-------+  ");
-            }
             printf("\n\n");
         }
     }
 }
 
-// Simular la evolución del sistema
-void simulate(int steps, int allow_movement)
-{
-    for (int step = 0; step < steps; step++)
-    {
-        printf("Step %d:\n", step + 1);
-
-        // Crear copias de los estados actuales para actualizar simultáneamente
-        for (int i = 0; i < num_cells; i++)
-        {
-            Cell *cell = cell_table[i];
-            int num_cases = cell->height * cell->width;
-
-            // Mapeo de casos antiguos a nuevos
-            Case **new_cases = (Case **)malloc(num_cases * sizeof(Case *));
-            Case **old_to_new_case_map = (Case **)malloc(num_cases * sizeof(Case *));
-            if (new_cases == NULL || old_to_new_case_map == NULL) {
-                perror("Error al asignar memoria para las nuevas celdas");
+void simular(int pasos, int permitir_movimiento) {
+    for (int paso = 0; paso < pasos; paso++) {
+        printf("Paso %d:\n", paso + 1);
+        for (int i = 0; i < num_celdas; i++) {
+            Celda *celda = tabla_celdas[i];
+            int num_casos = celda->altura * celda->anchura;
+            Caso **nuevos_casos = (Caso **)malloc(num_casos * sizeof(Caso *));
+            Caso **mapeo = (Caso **)malloc(num_casos * sizeof(Caso *));
+            if (!nuevos_casos || !mapeo) {
+                perror("Error al asignar memoria");
                 exit(EXIT_FAILURE);
             }
-
-            // Crear los nuevos casos y mapearlos
-            for (int idx = 0; idx < num_cases; idx++)
-            {
-                Case *current_case = cell->cases[idx];
-                Case *new_case = (Case *)malloc(sizeof(Case));
-                if (new_case == NULL) {
-                    perror("Error al asignar memoria para new_case");
+            for (int idx = 0; idx < num_casos; idx++) {
+                Caso *nuevo_caso = (Caso *)malloc(sizeof(Caso));
+                if (!nuevo_caso) {
+                    perror("Error al asignar memoria para nuevo_caso");
                     exit(EXIT_FAILURE);
                 }
-                new_case->x = current_case->x;
-                new_case->y = current_case->y;
-                new_case->S = current_case->S;
-                new_case->E = current_case->E;
-                new_case->I = current_case->I;
-                new_case->R = current_case->R;
-                new_case->D = current_case->D;
-                new_case->V = current_case->V;
-                new_case->num_neighbors = current_case->num_neighbors;
-                new_case->neighbors = NULL; // Lo actualizaremos después
-                new_cases[idx] = new_case;
-                old_to_new_case_map[idx] = new_case;
+                *nuevo_caso = *(celda->casos[idx]); // Copiar datos
+                nuevo_caso->vecinos = NULL;
+                nuevos_casos[idx] = nuevo_caso;
+                mapeo[idx] = nuevo_caso;
             }
-
-            // Actualizar los punteros a vecinos en los nuevos casos
-            for (int idx = 0; idx < num_cases; idx++)
-            {
-                Case *current_case = cell->cases[idx];
-                Case *new_case = new_cases[idx];
-                new_case->neighbors = (Case **)malloc(new_case->num_neighbors * sizeof(Case *));
-                if (new_case->neighbors == NULL) {
-                    perror("Error al asignar memoria para neighbors");
+            for (int idx = 0; idx < num_casos; idx++) {
+                Caso *nuevo_caso = nuevos_casos[idx];
+                Caso *caso_actual = celda->casos[idx];
+                int num_vecinos = caso_actual->num_vecinos;
+                nuevo_caso->vecinos = (Caso **)malloc(num_vecinos * sizeof(Caso *));
+                if (!nuevo_caso->vecinos) {
+                    perror("Error al asignar memoria para vecinos");
                     exit(EXIT_FAILURE);
                 }
-                for (int n = 0; n < current_case->num_neighbors; n++)
-                {
-                    Case *neighbor_old_case = current_case->neighbors[n];
-
-                    // Encontrar el índice del vecino
-                    int neighbor_index = -1;
-                    for (int search_idx = 0; search_idx < num_cases; search_idx++)
-                    {
-                        if (cell->cases[search_idx] == neighbor_old_case)
-                        {
-                            neighbor_index = search_idx;
+                for (int n = 0; n < num_vecinos; n++) {
+                    Caso *vecino_viejo = caso_actual->vecinos[n];
+                    int indice_vecino = -1;
+                    for (int j = 0; j < num_casos; j++) {
+                        if (celda->casos[j] == vecino_viejo) {
+                            indice_vecino = j;
                             break;
                         }
                     }
-                    if (neighbor_index != -1)
-                    {
-                        new_case->neighbors[n] = old_to_new_case_map[neighbor_index];
-                    }
-                    else
-                    {
-                        // Si no se encuentra, puede ser un vecino externo (otra celda)
-                        new_case->neighbors[n] = neighbor_old_case;
-                    }
+                    nuevo_caso->vecinos[n] = (indice_vecino != -1) ? mapeo[indice_vecino] : vecino_viejo;
                 }
             }
-
-            // Actualizar los estados
-            for (int idx = 0; idx < num_cases; idx++)
-            {
-                Case *current_case = cell->cases[idx];
-                Case *new_case = new_cases[idx];
-
-                // Cálculo de la población total
-                double N = current_case->S + current_case->E + current_case->I + current_case->R + current_case->D + current_case->V;
-                if (N == 0) N = 1; // Evitar división por cero
-
-                // Transiciones internas en la celda
-                double new_exposed = beta * current_case->S * current_case->I / N;
-                double new_infected = sigma * current_case->E;
-                double new_recovered = gamma_ * current_case->I;
-                double new_deaths = delta * current_case->I;
-                double new_vaccinated = rho * current_case->R;
-
-                // Actualizar estados con precisión decimal
-                new_case->S -= new_exposed;
-                new_case->E += new_exposed - new_infected;
-                new_case->I += new_infected - new_recovered - new_deaths;
-                new_case->R += new_recovered;
-                new_case->D += new_deaths;
-                new_case->V += new_vaccinated;
-
-                // Asegurar que los valores no sean negativos
-                if (new_case->S < 0) new_case->S = 0;
-                if (new_case->E < 0) new_case->E = 0;
-                if (new_case->I < 0) new_case->I = 0;
-                if (new_case->R < 0) new_case->R = 0;
-                if (new_case->D < 0) new_case->D = 0;
-                if (new_case->V < 0) new_case->V = 0;
-
-                // Movimiento entre celdas
-                if (allow_movement)
-                {
-                    // Implementar lógica de movimiento (ejemplo simple)
-                    double moving_infected = new_case->I * 0.01; // 1% se mueve
-                    new_case->I -= moving_infected;
-
-                    // Distribuir entre vecinos
-                    int num_neighbors = new_case->num_neighbors;
-                    if (num_neighbors > 0)
-                    {
-                        double infected_per_neighbor = moving_infected / num_neighbors;
-                        for (int n = 0; n < num_neighbors; n++)
-                        {
-                            Case *neighbor_case = new_case->neighbors[n];
-                            neighbor_case->I += infected_per_neighbor;
-
-                            printf("Moved %.2f infected individuals from Cell %s (%d,%d) to neighbor (%d,%d)\n",
-                                   infected_per_neighbor, cell->name, new_case->x, new_case->y,
-                                   neighbor_case->x, neighbor_case->y);
+            for (int idx = 0; idx < num_casos; idx++) {
+                Caso *nuevo_caso = nuevos_casos[idx];
+                double N = nuevo_caso->S + nuevo_caso->E + nuevo_caso->I + nuevo_caso->R + nuevo_caso->D + nuevo_caso->V;
+                if (N == 0) N = 1;
+                double nuevos_expuestos = beta * nuevo_caso->S * nuevo_caso->I / N;
+                double nuevos_infectados = sigma * nuevo_caso->E;
+                double nuevos_recuperados = gamma_ * nuevo_caso->I;
+                double nuevas_muertes = delta * nuevo_caso->I;
+                double nuevos_vacunados = rho * nuevo_caso->R;
+                nuevo_caso->S -= nuevos_expuestos;
+                nuevo_caso->E += nuevos_expuestos - nuevos_infectados;
+                nuevo_caso->I += nuevos_infectados - nuevos_recuperados - nuevas_muertes;
+                nuevo_caso->R += nuevos_recuperados;
+                nuevo_caso->D += nuevas_muertes;
+                nuevo_caso->V += nuevos_vacunados;
+                if (nuevo_caso->S < 0) nuevo_caso->S = 0;
+                if (nuevo_caso->E < 0) nuevo_caso->E = 0;
+                if (nuevo_caso->I < 0) nuevo_caso->I = 0;
+                if (nuevo_caso->R < 0) nuevo_caso->R = 0;
+                if (nuevo_caso->D < 0) nuevo_caso->D = 0;
+                if (nuevo_caso->V < 0) nuevo_caso->V = 0;
+                if (permitir_movimiento) {
+                    double infectados_mov = nuevo_caso->I * 0.01;
+                    nuevo_caso->I -= infectados_mov;
+                    int num_vecinos = nuevo_caso->num_vecinos;
+                    if (num_vecinos > 0) {
+                        double infectados_por_vecino = infectados_mov / num_vecinos;
+                        for (int n = 0; n < num_vecinos; n++) {
+                            Caso *vecino = nuevo_caso->vecinos[n];
+                            vecino->I += infectados_por_vecino;
+                            printf("Movidos %.2f infectados de Celda %s (%d,%d) al vecino (%d,%d)\n",
+                                   infectados_por_vecino, celda->nombre, nuevo_caso->x, nuevo_caso->y,
+                                   vecino->x, vecino->y);
                         }
                     }
                 }
-
-                // Redondear los valores finales para mostrar
-                int S_int = (int)round(new_case->S);
-                int E_int = (int)round(new_case->E);
-                int I_int = (int)round(new_case->I);
-                int R_int = (int)round(new_case->R);
-                int D_int = (int)round(new_case->D);
-                int V_int = (int)round(new_case->V);
-
-                // Actualizar los valores de new_case con los valores enteros
-                new_case->S = S_int;
-                new_case->E = E_int;
-                new_case->I = I_int;
-                new_case->R = R_int;
-                new_case->D = D_int;
-                new_case->V = V_int;
-
-                // Imprimir el estado actual de la celda
-                printf("Cell %s (%d,%d): S=%d, E=%d, I=%d, R=%d, D=%d, V=%d\n",
-                       cell->name, new_case->x, new_case->y,
-                       S_int, E_int, I_int, R_int, D_int, V_int);
+                nuevo_caso->S = (int)round(nuevo_caso->S);
+                nuevo_caso->E = (int)round(nuevo_caso->E);
+                nuevo_caso->I = (int)round(nuevo_caso->I);
+                nuevo_caso->R = (int)round(nuevo_caso->R);
+                nuevo_caso->D = (int)round(nuevo_caso->D);
+                nuevo_caso->V = (int)round(nuevo_caso->V);
+                printf("Celda %s (%d,%d): S=%d, E=%d, I=%d, R=%d, D=%d, V=%d\n",
+                       celda->nombre, nuevo_caso->x, nuevo_caso->y,
+                       (int)nuevo_caso->S, (int)nuevo_caso->E, (int)nuevo_caso->I,
+                       (int)nuevo_caso->R, (int)nuevo_caso->D, (int)nuevo_caso->V);
             }
-
-            // Reemplazar los casos antiguos con los nuevos
-            for (int idx = 0; idx < num_cases; idx++)
-            {
-                free(cell->cases[idx]);
-                cell->cases[idx] = new_cases[idx];
+            for (int idx = 0; idx < num_casos; idx++) {
+                free(celda->casos[idx]);
+                celda->casos[idx] = nuevos_casos[idx];
             }
-            free(new_cases);
-            free(old_to_new_case_map);
+            free(nuevos_casos);
+            free(mapeo);
         }
-
-        // Llamar a la función para visualizar el estado después de cada paso
-        visualize_cells_with_all_compartments();
+        visualizar_celdas_con_todos_compartimentos();
     }
 }

@@ -3,28 +3,29 @@
 %}
 
 %%
-"CREATE_AUTOMATON"      { return CREATE_AUTOMATON; }
-"CREATE_CELL"           { return CREATE_CELL; }
-"CONNECT_AC"            { return CONNECT_AC; }
-"PRINT_CELLS"           { return PRINT_CELLS; }
-"PRINT_CONNECTIONS"     { return PRINT_CONNECTIONS; }
-"PRINT"                 { return PRINT; }
-"SET_RATES"             { return SET_RATES; }
-"SIMULATE"              { return SIMULATE; }
-"ALLOW_MOVEMENT"        { return ALLOW_MOVEMENT; }
-"DISALLOW_MOVEMENT"     { return DISALLOW_MOVEMENT; }
+"CREAR_AUTOMATA"        { return CREAR_AUTOMATA; }
+"CREAR_CELDA"           { return CREAR_CELDA; }
+"CONECTAR_AC"           { return CONECTAR_AC; }
+"IMPRIMIR_CELDAS"       { return IMPRIMIR_CELDAS; }
+"IMPRIMIR_CONEXIONES"   { return IMPRIMIR_CONEXIONES; }
+"IMPRIMIR"              { return IMPRIMIR; }
+"ESTABLECER_TASAS"      { return ESTABLECER_TASAS; }
+"SIMULAR"               { return SIMULAR; }
+"PERMITIR_MOVIMIENTO"   { return PERMITIR_MOVIMIENTO; }
+"RESTRINGIR_MOVIMIENTO" { return RESTRINGIR_MOVIMIENTO; }
 
-"ALL"                   { return ALL; }
+"TODOS"                 { return TODOS; }
 [0-9]+"."[0-9]+         { yylval.num = atof(yytext); return NUM; } // Para números decimales
 [0-9]+                  { yylval.num = atof(yytext); return NUM; }
 [a-zA-Z_][a-zA-Z0-9_]*  { yylval.str = strdup(yytext); return ID; }
 
 [ \t\n]+                { /* Ignorar espacios en blanco y saltos de línea */ }
-.                       { printf("Unrecognized character: %s\n", yytext); }
+.                       { printf("Carácter no reconocido: %s\n", yytext); }
 
 %%
 
 int yywrap() {
     return 1;
 }
+
 
